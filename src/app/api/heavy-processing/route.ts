@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Heavy server-side processing endpoint
+/**
+ * Handles a GET request by simulating heavy database operations and returning processed data.
+ *
+ * The function performs complex calculations in a loop, simulating a heavy load on the server.
+ * It collects results in an array, introduces delays to mimic processing time, and finally
+ * returns a JSON response containing the processing time, number of items processed, and server information.
+ */
 export async function GET() {
   const startTime = Date.now();
   
@@ -44,6 +51,19 @@ export async function GET() {
   });
 }
 
+/**
+ * Handles a POST request to perform heavy computations based on the request body.
+ *
+ * The function extracts the number of iterations and complexity level from the request body,
+ * performs computations based on the specified complexity, and returns a JSON response
+ * with the results and server statistics. It also includes a mechanism to cap iterations
+ * to prevent server overload and introduces periodic delays for heavy computations.
+ *
+ * @param request - The NextRequest object containing the request data.
+ * @returns A JSON response containing the success status, processing time, requested and actual iterations,
+ *          complexity level, server timestamp, sample results, and server statistics.
+ * @throws Error If there is an error during the processing of the heavy computation.
+ */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
