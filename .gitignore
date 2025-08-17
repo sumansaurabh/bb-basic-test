@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pnpm
+.pnpm-store
+
+# IDE
+.vscode
+.idea
