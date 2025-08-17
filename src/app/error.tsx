@@ -2,6 +2,9 @@
 
 import { useEffect } from 'react';
 
+/**
+ * Displays an error message and a reset button when a load test fails.
+ */
 export default function Error({
   error,
   reset,
