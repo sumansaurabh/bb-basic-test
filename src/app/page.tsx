@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const data = await getServerData();
   
   return {
-    title: `🔥 Extreme Load Testing - ${data.serverInfo.requestId}`,
+    title: `🔥 Extreme Load Testing Suman - ${data.serverInfo.requestId}`,
     description: `Server-side rendered load testing page generated at ${data.serverInfo.timestamp}`,
     keywords: ['load testing', 'performance', 'SSR', 'Next.js'],
     openGraph: {
