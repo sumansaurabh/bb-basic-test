@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 
 // Heavy computation component
+/**
+ * A React component that performs a heavy computation and displays the result.
+ */
 const HeavyComputation = ({ index }: { index: number }) => {
   const [result, setResult] = useState(0);
   
@@ -33,6 +36,9 @@ const HeavyComputation = ({ index }: { index: number }) => {
 };
 
 // Memory intensive component
+/**
+ * Renders a memory-heavy component displaying a large array of data items.
+ */
 const MemoryHeavyComponent = () => {
   const largeArray = useMemo(() => {
     return Array.from({ length: 50000 }, (_, i) => ({
@@ -65,6 +71,9 @@ const MemoryHeavyComponent = () => {
 };
 
 // Infinite loop of animations
+/**
+ * A React component that displays a counter and animated elements.
+ */
 const AnimationHeavyComponent = () => {
   const [counter, setCounter] = useState(0);
 
@@ -96,6 +105,9 @@ const AnimationHeavyComponent = () => {
 };
 
 // DOM Heavy Component
+/**
+ * Renders a DOM-heavy component displaying a grid of items.
+ */
 const DOMHeavyComponent = () => {
   return (
     <div className="p-4 bg-purple-100 rounded">
@@ -122,10 +134,14 @@ const DOMHeavyComponent = () => {
   );
 };
 
+/**
+ * Renders a page for extreme load testing with various heavy components.
+ */
 export default function Home() {
   const [heavyComponents, setHeavyComponents] = useState(20);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  /** Starts generating more load by increasing heavy components after a delay. */
   const generateMoreLoad = () => {
     setIsGenerating(true);
     setTimeout(() => {
@@ -136,6 +152,9 @@ export default function Home() {
 
   // Continuous background computation
   useEffect(() => {
+    /**
+     * Continuously executes a function using requestAnimationFrame.
+     */
     const worker = () => {
       const array = new Array(100000).fill(0);
       array.forEach((_, i) => {
