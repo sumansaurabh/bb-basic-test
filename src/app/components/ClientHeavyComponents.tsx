@@ -1,19 +1,49 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ClientErrorBoundary } from '@/components/ClientErrorBoundary';
+import { logger } from '@/lib/logger';
+import { safeFunction } from '@/lib/errors';
 
-// Heavy computation component
+// Safe heavy computation component with error boundary
 const HeavyComputation = ({ index }: { index: number }) => {
   const [result, setResult] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    // Simulate heavy computation
-    let sum = 0;
-    for (let i = 0; i < 1000000; i++) {
-      sum += Math.random() * Math.sin(i) * Math.cos(i) * Math.sqrt(i + 1);
-    }
-    setResult(sum);
+    const computeHeavyResult = safeFunction(
+      () => {
+        let sum = 0;
+        // Add bounds checking
+        const iterations = Math.min(1000000, Math.max(1, 1000000));
+        
+        for (let i = 0; i < iterations; i++) {
+          const value = Math.random() * Math.sin(i) * Math.cos(i) * Math.sqrt(Math.max(1, i + 1));
+          if (Number.isFinite(value)) {
+            sum += value;
+          }
+        }
+        return sum;
+      },
+      0,
+      (error) => {
+        logger.error('Heavy computation failed', { index, error: error.message }, error);
+        setError(error.message);
+      }
+    );
+
+    const result = computeHeavyResult();
+    setResult(result);
   }, [index]);
+
+  if (error) {
+    return (
+      <div className="p-4 border rounded shadow-lg bg-red-100 border-red-300">
+        <h3 className="font-bold text-red-800">Heavy Component #{index} - Error</h3>
+        <p className="text-red-600 text-sm">Computation failed: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border rounded shadow-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white">
@@ -32,26 +62,68 @@ const HeavyComputation = ({ index }: { index: number }) => {
   );
 };
 
-// Memory intensive component
+// Memory intensive component with cleanup
 const MemoryHeavyComponent = () => {
+  const [isActive, setIsActive] = useState(true);
+  
   const largeArray = useMemo(() => {
-    return Array.from({ length: 50000 }, (_, i) => ({
-      id: i,
-      data: `Heavy data item ${i}`,
-      randomValue: Math.random(),
-      timestamp: Date.now(),
-      nested: {
-        level1: Array.from({ length: 10 }, (_, j) => ({
-          id: j,
-          value: Math.random() * 1000,
-        }))
-      }
-    }));
+    if (!isActive) return [];
+    
+    try {
+      const maxItems = 50000;
+      return Array.from({ length: maxItems }, (_, i) => ({
+        id: i,
+        data: `Heavy data item ${i}`,
+        randomValue: Math.random(),
+        timestamp: Date.now(),
+        nested: {
+          level1: Array.from({ length: Math.min(10, i % 10 + 1) }, (_, j) => ({
+            id: j,
+            value: Math.random() * 1000,
+          }))
+        }
+      }));
+    } catch (error) {
+      logger.warn('Memory heavy component failed to create array', {}, error instanceof Error ? error : new Error('Unknown error'));
+      return [];
+    }
+  }, [isActive]);
+
+  // Cleanup function
+  const handleCleanup = useCallback(() => {
+    setIsActive(false);
+    logger.debug('Memory heavy component cleaned up');
   }, []);
+
+  useEffect(() => {
+    return handleCleanup; // Cleanup on unmount
+  }, [handleCleanup]);
+
+  if (!isActive) {
+    return (
+      <div className="p-4 bg-gray-200 rounded">
+        <h3 className="font-bold text-gray-600">Memory Heavy Component - Cleaned Up</h3>
+        <button 
+          onClick={() => setIsActive(true)}
+          className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm"
+        >
+          Reactivate
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 bg-red-100 rounded">
-      <h3 className="font-bold text-red-800">Memory Heavy Component</h3>
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-bold text-red-800">Memory Heavy Component</h3>
+        <button 
+          onClick={handleCleanup}
+          className="px-2 py-1 bg-red-500 text-white rounded text-sm"
+        >
+          Cleanup
+        </button>
+      </div>
       <p>Array Length: {largeArray.length}</p>
       <div className="max-h-40 overflow-y-auto">
         {largeArray.slice(0, 100).map(item => (
@@ -64,48 +136,103 @@ const MemoryHeavyComponent = () => {
   );
 };
 
-// Infinite loop of animations
+// Animation component with controlled animations
 const AnimationHeavyComponent = () => {
   const [counter, setCounter] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
+    if (!isAnimating) return;
+
     const interval = setInterval(() => {
-      setCounter(prev => prev + 1);
+      setCounter(prev => {
+        const newValue = prev + 1;
+        // Prevent counter overflow
+        return newValue > 10000 ? 0 : newValue;
+      });
     }, 10);
+
     return () => clearInterval(interval);
-  }, []);
+  }, [isAnimating]);
 
   return (
     <div className="p-4 bg-green-100 rounded relative overflow-hidden">
-      <h3 className="font-bold text-green-800">Animation Heavy Component</h3>
-      <p>Counter: {counter}</p>
-      <div className="grid grid-cols-20 gap-1">
-        {Array.from({ length: 400 }, (_, i) => (
-          <div
-            key={i}
-            className="w-2 h-2 bg-gradient-to-r from-red-500 to-blue-500 rounded-full animate-spin"
-            style={{
-              animationDuration: `${Math.random() * 2 + 0.5}s`,
-              transform: `rotate(${(counter + i) * 3.6}deg) scale(${Math.sin(counter * 0.1 + i) + 1})`
-            }}
-          />
-        ))}
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-bold text-green-800">Animation Heavy Component</h3>
+        <button 
+          onClick={() => setIsAnimating(!isAnimating)}
+          className={`px-2 py-1 rounded text-sm text-white ${
+            isAnimating ? 'bg-red-500' : 'bg-green-500'
+          }`}
+        >
+          {isAnimating ? 'Pause' : 'Resume'}
+        </button>
       </div>
+      <p>Counter: {counter}</p>
+      {isAnimating && (
+        <div className="grid grid-cols-20 gap-1">
+          {Array.from({ length: 400 }, (_, i) => (
+            <div
+              key={i}
+              className="w-2 h-2 bg-gradient-to-r from-red-500 to-blue-500 rounded-full animate-spin"
+              style={{
+                animationDuration: `${Math.random() * 2 + 0.5}s`,
+                transform: `rotate(${(counter + i) * 3.6}deg) scale(${Math.abs(Math.sin(counter * 0.1 + i)) + 0.5})`
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
-// DOM Heavy Component
+// Safe DOM Heavy Component
 const DOMHeavyComponent = () => {
+  const [itemCount, setItemCount] = useState(1000);
+  const [isInteractive, setIsInteractive] = useState(true);
+
+  const handleClick = useCallback((index: number) => {
+    if (isInteractive) {
+      logger.debug(`DOM item clicked: ${index}`);
+    }
+  }, [isInteractive]);
+
+  const safeItemCount = Math.min(Math.max(itemCount, 100), 2000); // Limit between 100-2000
+
   return (
     <div className="p-4 bg-purple-100 rounded">
-      <h3 className="font-bold text-purple-800">DOM Heavy Component</h3>
-      <div className="grid grid-cols-12 gap-1">
-        {Array.from({ length: 1000 }, (_, i) => (
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-purple-800">DOM Heavy Component</h3>
+        <div className="flex gap-2">
+          <input
+            type="range"
+            min="100"
+            max="2000"
+            step="100"
+            value={safeItemCount}
+            onChange={(e) => setItemCount(parseInt(e.target.value))}
+            className="w-24"
+          />
+          <span className="text-sm">{safeItemCount}</span>
+          <button
+            onClick={() => setIsInteractive(!isInteractive)}
+            className={`px-2 py-1 rounded text-sm text-white ${
+              isInteractive ? 'bg-purple-500' : 'bg-gray-500'
+            }`}
+          >
+            {isInteractive ? 'Interactive' : 'Static'}
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-12 gap-1 max-h-96 overflow-y-auto">
+        {Array.from({ length: safeItemCount }, (_, i) => (
           <div
             key={i}
-            className="p-2 bg-gradient-to-br from-pink-300 to-yellow-300 rounded text-xs text-center font-bold shadow hover:scale-110 transition-transform cursor-pointer"
-            onClick={() => console.log(`Clicked ${i}`)}
+            className={`p-2 bg-gradient-to-br from-pink-300 to-yellow-300 rounded text-xs text-center font-bold shadow transition-transform ${
+              isInteractive ? 'hover:scale-110 cursor-pointer' : ''
+            }`}
+            onClick={() => handleClick(i)}
           >
             <div className="mb-1">Item {i}</div>
             <div className="text-xs opacity-75">{Math.random().toFixed(3)}</div>
@@ -122,16 +249,35 @@ const DOMHeavyComponent = () => {
   );
 };
 
-// Client-side hydration component
+// Enhanced client-side hydration component
 const HydrationStatus = () => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationTime, setHydrationTime] = useState<number>(0);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   useEffect(() => {
-    const start = performance.now();
-    setIsHydrated(true);
-    setHydrationTime(performance.now() - start);
+    try {
+      const start = performance.now();
+      setIsHydrated(true);
+      const time = performance.now() - start;
+      setHydrationTime(time);
+      
+      logger.info('Client components hydrated successfully', { hydrationTime: time });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown hydration error';
+      setHydrationError(errorMessage);
+      logger.error('Client hydration failed', { error: errorMessage }, error instanceof Error ? error : new Error(errorMessage));
+    }
   }, []);
+
+  if (hydrationError) {
+    return (
+      <div className="p-4 bg-red-900 border border-red-600 rounded-lg">
+        <h3 className="font-bold text-red-300">❌ Hydration Error</h3>
+        <p className="text-red-200">Hydration failed: {hydrationError}</p>
+      </div>
+    );
+  }
 
   if (!isHydrated) {
     return (
@@ -164,168 +310,239 @@ interface ClientHeavyComponentsProps {
 }
 
 export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavyComponentsProps) {
-  const [heavyComponents, setHeavyComponents] = useState(initialCount);
+  const [heavyComponents, setHeavyComponents] = useState(Math.min(initialCount, 50)); // Cap initial count
   const [isGenerating, setIsGenerating] = useState(false);
   const [clientStartTime] = useState(() => Date.now());
+  const [performanceMode, setPerformanceMode] = useState<'normal' | 'safe' | 'minimal'>('normal');
 
-  const generateMoreLoad = () => {
+  const generateMoreLoad = useCallback(() => {
     setIsGenerating(true);
-    setTimeout(() => {
-      setHeavyComponents(prev => prev + 10);
+    try {
+      setTimeout(() => {
+        setHeavyComponents(prev => {
+          const increment = performanceMode === 'minimal' ? 2 : performanceMode === 'safe' ? 5 : 10;
+          const maxComponents = performanceMode === 'minimal' ? 10 : performanceMode === 'safe' ? 25 : 100;
+          return Math.min(prev + increment, maxComponents);
+        });
+        setIsGenerating(false);
+      }, 100);
+    } catch (error) {
+      logger.error('Failed to generate more load', {}, error instanceof Error ? error : new Error('Unknown error'));
       setIsGenerating(false);
-    }, 100);
-  };
+    }
+  }, [performanceMode]);
 
-  // Continuous background computation
+  // Safe background computation with cleanup
   useEffect(() => {
-    const worker = () => {
-      const array = new Array(100000).fill(0);
-      let sum = 0;
-      array.forEach((_, i) => {
-        sum += Math.random() * Math.sin(i) * Math.cos(i);
-      });
-      // Store result to prevent optimization
-      if (sum > 0) {
-        requestAnimationFrame(worker);
-      } else {
-        requestAnimationFrame(worker);
+    if (performanceMode === 'minimal') return;
+
+    let isActive = true;
+    const performBackgroundWork = () => {
+      if (!isActive) return;
+      
+      try {
+        const array = new Array(performanceMode === 'safe' ? 10000 : 100000).fill(0);
+        let sum = 0;
+        
+        // Process in smaller chunks
+        const chunkSize = 1000;
+        let processed = 0;
+        
+        const processChunk = () => {
+          if (!isActive) return;
+          
+          const end = Math.min(processed + chunkSize, array.length);
+          for (let i = processed; i < end; i++) {
+            sum += Math.random() * Math.sin(i) * Math.cos(i);
+          }
+          processed = end;
+          
+          if (processed < array.length) {
+            setTimeout(processChunk, 1);
+          } else {
+            // Schedule next iteration
+            if (sum !== null) { // Prevent optimization
+              setTimeout(performBackgroundWork, 10);
+            }
+          }
+        };
+        
+        processChunk();
+      } catch (error) {
+        logger.debug('Background computation error', {}, error instanceof Error ? error : new Error('Unknown error'));
+        if (isActive) {
+          setTimeout(performBackgroundWork, 100);
+        }
       }
     };
-    worker();
-  }, []);
+
+    performBackgroundWork();
+
+    return () => {
+      isActive = false;
+    };
+  }, [performanceMode]);
+
+  const componentCounts = {
+    heavy: Math.min(heavyComponents, performanceMode === 'minimal' ? 5 : performanceMode === 'safe' ? 15 : 50),
+    memory: performanceMode === 'minimal' ? 1 : performanceMode === 'safe' ? 3 : 5,
+    animation: performanceMode === 'minimal' ? 1 : performanceMode === 'safe' ? 2 : 4,
+  };
 
   return (
-    <div className="p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Hydration status */}
-        <div className="mb-8">
-          <HydrationStatus />
-        </div>
-
-        {/* Client controls */}
-        <div className="text-center mb-8">
-          <div className="p-6 bg-orange-900 border border-orange-600 rounded-lg">
-            <h2 className="text-3xl font-bold text-orange-300 mb-4">🔥 Client-Side Load Controls</h2>
-            <p className="text-orange-200 mb-4">
-              Client started at: {new Date(clientStartTime).toLocaleTimeString()}
-            </p>
-            <button
-              onClick={generateMoreLoad}
-              disabled={isGenerating}
-              className="px-8 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded-lg font-bold text-white transition-colors"
-            >
-              {isGenerating ? 'GENERATING MORE LOAD...' : 'ADD MORE CLIENT LOAD 💥'}
-            </button>
-            <p className="mt-2 text-orange-400">Current Heavy Components: {heavyComponents}</p>
+    <ClientErrorBoundary>
+      <div className="p-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Hydration status */}
+          <div className="mb-8">
+            <HydrationStatus />
           </div>
-        </div>
 
-        {/* Memory Heavy Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-red-400">🧠 Client Memory Destroyers</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 5 }, (_, i) => (
-              <MemoryHeavyComponent key={`memory-${i}`} />
-            ))}
-          </div>
-        </div>
-
-        {/* Animation Heavy Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-green-400">🎬 Client Animation Overload</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <AnimationHeavyComponent key={`animation-${i}`} />
-            ))}
-          </div>
-        </div>
-
-        {/* Computation Heavy Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-blue-400">⚡ Client CPU Burners</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: heavyComponents }, (_, i) => (
-              <HeavyComputation key={`computation-${i}`} index={i} />
-            ))}
-          </div>
-        </div>
-
-        {/* DOM Heavy Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-purple-400">💀 Client DOM Apocalypse</h2>
-          <DOMHeavyComponent />
-        </div>
-
-        {/* Server + Client Data Comparison */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-yellow-400">🔄 Server vs Client Data</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-blue-900 p-6 rounded-lg">
-              <h3 className="text-xl font-bold text-blue-300 mb-4">📊 Server-Provided Data</h3>
-              <p className="text-blue-200 mb-2">Items from server: {serverItems.length}</p>
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {serverItems.slice(0, 50).map(item => (
-                  <div key={item.id} className="p-2 bg-blue-800 rounded text-sm">
-                    <div className="text-blue-100">{item.serverGeneratedData}</div>
-                    <div className="text-blue-400 text-xs">Hash: {item.hash}</div>
-                  </div>
+          {/* Performance controls */}
+          <div className="mb-8">
+            <div className="p-4 bg-gray-800 rounded-lg">
+              <h3 className="font-bold text-white mb-3">Performance Mode</h3>
+              <div className="flex gap-2 mb-4">
+                {(['minimal', 'safe', 'normal'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setPerformanceMode(mode)}
+                    className={`px-3 py-2 rounded capitalize ${
+                      performanceMode === mode 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+                    }`}
+                  >
+                    {mode}
+                  </button>
                 ))}
               </div>
-            </div>
-            
-            <div className="bg-orange-900 p-6 rounded-lg">
-              <h3 className="text-xl font-bold text-orange-300 mb-4">🖥️ Client-Generated Data</h3>
-              <p className="text-orange-200 mb-2">Real-time client updates</p>
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {Array.from({ length: 50 }, (_, i) => (
-                  <div key={i} className="p-2 bg-orange-800 rounded text-sm">
-                    <div className="text-orange-100">Client Item #{i + 1}</div>
-                    <div className="text-orange-400 text-xs">
-                      Generated: {new Date().toLocaleTimeString()}
-                    </div>
-                    <div className="text-orange-400 text-xs">
-                      Random: {Math.random().toFixed(6)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-gray-300 text-sm">
+                Current mode: <strong>{performanceMode}</strong> - 
+                {performanceMode === 'minimal' && ' Minimal components for maximum stability'}
+                {performanceMode === 'safe' && ' Reduced component count for better performance'}
+                {performanceMode === 'normal' && ' Full component load for testing'}
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* Infinite Scroll Simulation */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4 text-yellow-400">♾️ Client Infinite Content</h2>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {Array.from({ length: 2000 }, (_, i) => (
-              <div
-                key={i}
-                className="p-3 bg-gradient-to-r from-gray-800 to-gray-700 rounded flex justify-between items-center hover:from-gray-700 hover:to-gray-600 transition-colors"
+          {/* Client controls */}
+          <div className="text-center mb-8">
+            <div className="p-6 bg-orange-900 border border-orange-600 rounded-lg">
+              <h2 className="text-3xl font-bold text-orange-300 mb-4">🔥 Client-Side Load Controls</h2>
+              <p className="text-orange-200 mb-4">
+                Client started at: {new Date(clientStartTime).toLocaleTimeString()}
+              </p>
+              <button
+                onClick={generateMoreLoad}
+                disabled={isGenerating}
+                className="px-8 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded-lg font-bold text-white transition-colors"
               >
-                <span>Client Infinite Item #{i + 1}</span>
-                <div className="flex space-x-2">
-                  {Array.from({ length: 10 }, (_, j) => (
-                    <div
-                      key={j}
-                      className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-blue-500 animate-ping"
-                      style={{ animationDelay: `${j * 100}ms` }}
-                    />
-                  ))}
+                {isGenerating ? 'GENERATING MORE LOAD...' : 'ADD MORE CLIENT LOAD 💥'}
+              </button>
+              <p className="mt-2 text-orange-400">Current Heavy Components: {componentCounts.heavy}</p>
+            </div>
+          </div>
+
+          {/* Memory Heavy Section */}
+          <ClientErrorBoundary fallback={<div className="p-4 bg-red-200 rounded">Memory components failed to load</div>}>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-red-400">🧠 Client Memory Destroyers</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: componentCounts.memory }, (_, i) => (
+                  <ClientErrorBoundary key={`memory-${i}`}>
+                    <MemoryHeavyComponent />
+                  </ClientErrorBoundary>
+                ))}
+              </div>
+            </div>
+          </ClientErrorBoundary>
+
+          {/* Animation Heavy Section */}
+          <ClientErrorBoundary fallback={<div className="p-4 bg-green-200 rounded">Animation components failed to load</div>}>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-green-400">🎬 Client Animation Overload</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: componentCounts.animation }, (_, i) => (
+                  <ClientErrorBoundary key={`animation-${i}`}>
+                    <AnimationHeavyComponent />
+                  </ClientErrorBoundary>
+                ))}
+              </div>
+            </div>
+          </ClientErrorBoundary>
+
+          {/* Computation Heavy Section */}
+          <ClientErrorBoundary fallback={<div className="p-4 bg-blue-200 rounded">Computation components failed to load</div>}>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-blue-400">⚡ Client CPU Burners</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: componentCounts.heavy }, (_, i) => (
+                  <ClientErrorBoundary key={`computation-${i}`}>
+                    <HeavyComputation index={i} />
+                  </ClientErrorBoundary>
+                ))}
+              </div>
+            </div>
+          </ClientErrorBoundary>
+
+          {/* DOM Heavy Section */}
+          <ClientErrorBoundary fallback={<div className="p-4 bg-purple-200 rounded">DOM components failed to load</div>}>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-purple-400">💀 Client DOM Apocalypse</h2>
+              <DOMHeavyComponent />
+            </div>
+          </ClientErrorBoundary>
+
+          {/* Server + Client Data Comparison */}
+          <ClientErrorBoundary>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-yellow-400">🔄 Server vs Client Data</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-blue-900 p-6 rounded-lg">
+                  <h3 className="text-xl font-bold text-blue-300 mb-4">📊 Server-Provided Data</h3>
+                  <p className="text-blue-200 mb-2">Items from server: {serverItems?.length || 0}</p>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {(serverItems || []).slice(0, 50).map(item => (
+                      <div key={item.id} className="p-2 bg-blue-800 rounded text-sm">
+                        <div className="text-blue-100">{item.serverGeneratedData}</div>
+                        <div className="text-blue-400 text-xs">Hash: {item.hash}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-orange-900 p-6 rounded-lg">
+                  <h3 className="text-xl font-bold text-orange-300 mb-4">🖥️ Client-Generated Data</h3>
+                  <p className="text-orange-200 mb-2">Real-time client updates</p>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {Array.from({ length: 50 }, (_, i) => (
+                      <div key={i} className="p-2 bg-orange-800 rounded text-sm">
+                        <div className="text-orange-100">Client Item #{i + 1}</div>
+                        <div className="text-orange-400 text-xs">
+                          Generated: {new Date().toLocaleTimeString()}
+                        </div>
+                        <div className="text-orange-400 text-xs">
+                          Random: {Math.random().toFixed(6)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
+          </ClientErrorBoundary>
+
+          <div className="text-center py-8">
+            <p className="text-red-500 font-bold text-2xl">
+              🚨 SSR + CSR SYSTEM WITH ENHANCED RELIABILITY 🚨
+            </p>
+            <p className="text-gray-400 mt-2">
+              Error boundaries and defensive programming now protect against crashes
+            </p>
           </div>
         </div>
-
-        <div className="text-center py-8">
-          <p className="text-red-500 font-bold text-2xl animate-bounce">
-            🚨 SSR + CSR SYSTEM UNDER EXTREME LOAD 🚨
-          </p>
-          <p className="text-gray-400 mt-2">
-            Check your browser&apos;s performance monitor and server logs to see the carnage
-          </p>
-        </div>
       </div>
-    </div>
+    </ClientErrorBoundary>
   );
 }
