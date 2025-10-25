@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+/**
+ * Handles GET requests and returns a JSON response with user data.
+ */
 export async function GET() {
 
   // dummy user
