@@ -6,10 +6,13 @@ export async function GET() {
   const user = {
     "name": "John Doe",
     "email": "johdoe@gmail.com",
+    "profile": {
+      "address": {
+        "name": "123 Main Street"
+      }
+    }
   }
 
-  // This will throw a runtime error: Cannot read property 'name' of undefined
-  // @ts-expect-error - Intentionally accessing undefined property for testing
   const data = user.profile.address.name;
 
   return NextResponse.json({
