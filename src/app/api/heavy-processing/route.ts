@@ -1,8 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { successResponse, withErrorHandler } from '@/lib/api-response';
+import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
+import { getClientIP } from '@/lib/request-utils';
+import { logger } from '@/lib/logger';
+import { TimeoutError } from '@/lib/errors';
 
-// Heavy server-side processing endpoint
-export async function GET() {
+// Heavy server-side processing endpoint with rate limiting
+export const GET = withErrorHandler(async (request: NextRequest) => {
   const startTime = Date.now();
+  const clientIP = getClientIP(request);
+
+  // Apply rate limiting
+  rateLimiter.check(clientIP, RATE_LIMITS.moderate);
+
+  logger.info('Heavy processing GET request started', { clientIP });
   
   // Simulate heavy database operations
   const heavyData = [];
@@ -29,12 +40,21 @@ export async function GET() {
   await new Promise(resolve => setTimeout(resolve, 100));
   
   const processingTime = Date.now() - startTime;
-  
-  return NextResponse.json({
-    success: true,
+
+  // Check for timeout (30 seconds)
+  if (processingTime > 30000) {
+    throw new TimeoutError('Processing took too long');
+  }
+
+  logger.info('Heavy processing GET request completed', {
+    clientIP,
     processingTime,
     itemsProcessed: heavyData.length,
-    serverTimestamp: new Date().toISOString(),
+  });
+  
+  return successResponse({
+    processingTime,
+    itemsProcessed: heavyData.length,
     data: heavyData.slice(0, 100), // Return only first 100 items
     serverInfo: {
       nodeVersion: process.version,
@@ -42,14 +62,25 @@ export async function GET() {
       memoryUsage: process.memoryUsage(),
     },
   });
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withErrorHandler(async (request: NextRequest) => {
   const startTime = Date.now();
-  
-  try {
-    const body = await request.json();
-    const { iterations = 1000, complexity = 'medium' } = body;
+  const clientIP = getClientIP(request);
+
+  // Apply stricter rate limiting for POST
+  rateLimiter.check(clientIP, RATE_LIMITS.strict);
+
+  logger.info('Heavy processing POST request started', { clientIP });
+
+  const body = await request.json();
+  const { iterations = 1000, complexity = 'medium' } = body;
+
+  // Validate complexity parameter
+  const validComplexities = ['light', 'medium', 'heavy'] as const;
+  if (!validComplexities.includes(complexity)) {
+    throw new Error(`Invalid complexity. Must be one of: ${validComplexities.join(', ')}`);
+  }
     
     // Heavy computation based on request
     const results = [];
@@ -87,32 +118,31 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    const processingTime = Date.now() - startTime;
-    
-    return NextResponse.json({
-      success: true,
-      processingTime,
-      requestedIterations: iterations,
-      actualIterations: iterationCount,
-      complexity,
-      serverTimestamp: new Date().toISOString(),
-      results: results.slice(0, 50), // Return sample results
-      serverStats: {
-        cpuUsage: Math.random() * 100,
-        memoryUsage: process.memoryUsage(),
-        uptime: process.uptime(),
-      },
-    });
-    
-  } catch (err) {
-    console.error('Heavy processing error:', err);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+  const processingTime = Date.now() - startTime;
+
+  // Check for timeout
+  if (processingTime > 30000) {
+    throw new TimeoutError('Processing took too long');
   }
-}
+
+  logger.info('Heavy processing POST request completed', {
+    clientIP,
+    processingTime,
+    requestedIterations: iterations,
+    actualIterations: iterationCount,
+    complexity,
+  });
+  
+  return successResponse({
+    processingTime,
+    requestedIterations: iterations,
+    actualIterations: iterationCount,
+    complexity,
+    results: results.slice(0, 50), // Return sample results
+    serverStats: {
+      cpuUsage: Math.random() * 100,
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime(),
+    },
+  });
+});
