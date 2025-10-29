@@ -176,22 +176,38 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
     }, 100);
   };
 
-  // Continuous background computation
+  // Continuous background computation with proper cleanup
   useEffect(() => {
+    let rafId: number | null = null;
+    let isActive = true;
+
     const worker = () => {
+      if (!isActive) return;
+
       const array = new Array(100000).fill(0);
       let sum = 0;
       array.forEach((_, i) => {
         sum += Math.random() * Math.sin(i) * Math.cos(i);
       });
-      // Store result to prevent optimization
-      if (sum > 0) {
-        requestAnimationFrame(worker);
-      } else {
-        requestAnimationFrame(worker);
+      
+      // Use sum to prevent optimization (void expression)
+      void sum;
+      
+      // Continue only if component is still mounted
+      if (isActive) {
+        rafId = requestAnimationFrame(worker);
       }
     };
-    worker();
+    
+    rafId = requestAnimationFrame(worker);
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      isActive = false;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, []);
 
   return (
