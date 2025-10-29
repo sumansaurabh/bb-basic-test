@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { successResponse, errorResponse } from '@/lib/api-response';
+import { applyRateLimit, logRequest, getClientIdentifier } from '@/lib/middleware';
+import { validateNumber, validateEnum } from '@/lib/validation';
+import { logger } from '@/lib/logger';
+import { TimeoutError } from '@/lib/errors';
 
 // Heavy server-side processing endpoint
-export async function GET() {
-  const startTime = Date.now();
+export async function GET(request: NextRequest) {
+  try {
+    // Apply rate limiting for heavy operations
+    applyRateLimit(request, 'heavy');
+    
+    // Log the request
+    logRequest(request, { endpoint: 'heavy-processing-get' });
+    
+    const startTime = Date.now();
   
   // Simulate heavy database operations
   const heavyData = [];
@@ -28,32 +40,60 @@ export async function GET() {
   // Simulate database writes
   await new Promise(resolve => setTimeout(resolve, 100));
   
-  const processingTime = Date.now() - startTime;
-  
-  return NextResponse.json({
-    success: true,
-    processingTime,
-    itemsProcessed: heavyData.length,
-    serverTimestamp: new Date().toISOString(),
-    data: heavyData.slice(0, 100), // Return only first 100 items
-    serverInfo: {
-      nodeVersion: process.version,
-      platform: process.platform,
-      memoryUsage: process.memoryUsage(),
-    },
-  });
+    const processingTime = Date.now() - startTime;
+    
+    // Timeout protection
+    if (processingTime > 30000) {
+      throw new TimeoutError('Processing took too long');
+    }
+    
+    logger.info('Heavy processing completed', {
+      processingTime,
+      itemsProcessed: heavyData.length,
+      clientIp: getClientIdentifier(request),
+    });
+    
+    return successResponse({
+      processingTime,
+      itemsProcessed: heavyData.length,
+      data: heavyData.slice(0, 100), // Return only first 100 items
+      serverInfo: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        memoryUsage: process.memoryUsage(),
+      },
+    });
+  } catch (error) {
+    return errorResponse(error, {
+      endpoint: 'heavy-processing-get',
+      clientIp: getClientIdentifier(request),
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-  
   try {
+    // Apply rate limiting for heavy operations
+    applyRateLimit(request, 'heavy');
+    
+    // Log the request
+    logRequest(request, { endpoint: 'heavy-processing-post' });
+    
+    const startTime = Date.now();
     const body = await request.json();
-    const { iterations = 1000, complexity = 'medium' } = body;
+    
+    // Validate input parameters
+    const iterations = body.iterations !== undefined 
+      ? validateNumber(body.iterations, 'iterations', { min: 1, max: 50000, integer: true })
+      : 1000;
+    
+    const complexity = body.complexity !== undefined
+      ? validateEnum(body.complexity, 'complexity', ['light', 'medium', 'heavy'] as const)
+      : 'medium';
     
     // Heavy computation based on request
     const results = [];
-    const iterationCount = Math.min(iterations, 50000); // Cap to prevent server overload
+    const iterationCount = iterations; // Already validated and capped
     
     for (let i = 0; i < iterationCount; i++) {
       let computation = 0;
@@ -89,13 +129,23 @@ export async function POST(request: NextRequest) {
     
     const processingTime = Date.now() - startTime;
     
-    return NextResponse.json({
-      success: true,
+    // Timeout protection
+    if (processingTime > 30000) {
+      throw new TimeoutError('Processing took too long');
+    }
+    
+    logger.info('Heavy processing POST completed', {
+      processingTime,
+      iterations: iterationCount,
+      complexity,
+      clientIp: getClientIdentifier(request),
+    });
+    
+    return successResponse({
       processingTime,
       requestedIterations: iterations,
       actualIterations: iterationCount,
       complexity,
-      serverTimestamp: new Date().toISOString(),
       results: results.slice(0, 50), // Return sample results
       serverStats: {
         cpuUsage: Math.random() * 100,
@@ -103,16 +153,10 @@ export async function POST(request: NextRequest) {
         uptime: process.uptime(),
       },
     });
-    
-  } catch (err) {
-    console.error('Heavy processing error:', err);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return errorResponse(error, {
+      endpoint: 'heavy-processing-post',
+      clientIp: getClientIdentifier(request),
+    });
   }
 }
