@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 
-// Heavy computation component
-const HeavyComputation = ({ index }: { index: number }) => {
+// Heavy computation component with memoization to prevent unnecessary re-renders
+const HeavyComputation = memo(({ index }: { index: number }) => {
   const [result, setResult] = useState(0);
   
   useEffect(() => {
@@ -30,10 +30,12 @@ const HeavyComputation = ({ index }: { index: number }) => {
       </div>
     </div>
   );
-};
+});
 
-// Memory intensive component
-const MemoryHeavyComponent = () => {
+HeavyComputation.displayName = 'HeavyComputation';
+
+// Memory intensive component with memoization
+const MemoryHeavyComponent = memo(() => {
   const largeArray = useMemo(() => {
     return Array.from({ length: 50000 }, (_, i) => ({
       id: i,
@@ -62,10 +64,12 @@ const MemoryHeavyComponent = () => {
       </div>
     </div>
   );
-};
+});
 
-// Infinite loop of animations
-const AnimationHeavyComponent = () => {
+MemoryHeavyComponent.displayName = 'MemoryHeavyComponent';
+
+// Animation component with proper cleanup
+const AnimationHeavyComponent = memo(() => {
   const [counter, setCounter] = useState(0);
 
   useEffect(() => {
@@ -93,10 +97,15 @@ const AnimationHeavyComponent = () => {
       </div>
     </div>
   );
-};
+});
 
-// DOM Heavy Component
-const DOMHeavyComponent = () => {
+AnimationHeavyComponent.displayName = 'AnimationHeavyComponent';
+
+// DOM Heavy Component with memoization and useCallback for event handlers
+const DOMHeavyComponent = memo(() => {
+  const handleClick = useCallback((index: number) => {
+    console.log(`Clicked ${index}`);
+  }, []);
   return (
     <div className="p-4 bg-purple-100 rounded">
       <h3 className="font-bold text-purple-800">DOM Heavy Component</h3>
@@ -105,7 +114,7 @@ const DOMHeavyComponent = () => {
           <div
             key={i}
             className="p-2 bg-gradient-to-br from-pink-300 to-yellow-300 rounded text-xs text-center font-bold shadow hover:scale-110 transition-transform cursor-pointer"
-            onClick={() => console.log(`Clicked ${i}`)}
+            onClick={() => handleClick(i)}
           >
             <div className="mb-1">Item {i}</div>
             <div className="text-xs opacity-75">{Math.random().toFixed(3)}</div>
@@ -120,10 +129,12 @@ const DOMHeavyComponent = () => {
       </div>
     </div>
   );
-};
+});
 
-// Client-side hydration component
-const HydrationStatus = () => {
+DOMHeavyComponent.displayName = 'DOMHeavyComponent';
+
+// Client-side hydration component with memoization
+const HydrationStatus = memo(() => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationTime, setHydrationTime] = useState<number>(0);
 
@@ -149,7 +160,9 @@ const HydrationStatus = () => {
       <p className="text-green-200">Client-side rendering is now active</p>
     </div>
   );
-};
+});
+
+HydrationStatus.displayName = 'HydrationStatus';
 
 interface ServerProcessedItem {
   id: number;
@@ -168,30 +181,49 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
   const [isGenerating, setIsGenerating] = useState(false);
   const [clientStartTime] = useState(() => Date.now());
 
-  const generateMoreLoad = () => {
+  // Memoize callback to prevent unnecessary re-renders
+  const generateMoreLoad = useCallback(() => {
     setIsGenerating(true);
     setTimeout(() => {
       setHeavyComponents(prev => prev + 10);
       setIsGenerating(false);
     }, 100);
-  };
+  }, []);
 
-  // Continuous background computation
+  // Continuous background computation with proper cleanup
   useEffect(() => {
+    let animationFrameId: number;
+    let isActive = true;
+
     const worker = () => {
+      if (!isActive) return;
+
+      // Perform background computation
       const array = new Array(100000).fill(0);
-      let sum = 0;
+      let tempSum = 0;
       array.forEach((_, i) => {
-        sum += Math.random() * Math.sin(i) * Math.cos(i);
+        // Computation to keep CPU busy
+        tempSum += Math.random() * Math.sin(i) * Math.cos(i);
       });
-      // Store result to prevent optimization
-      if (sum > 0) {
-        requestAnimationFrame(worker);
-      } else {
-        requestAnimationFrame(worker);
+      
+      // Use tempSum to prevent optimization (void expression)
+      void tempSum;
+      
+      // Continue only if component is still mounted
+      if (isActive) {
+        animationFrameId = requestAnimationFrame(worker);
       }
     };
+    
     worker();
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      isActive = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
   }, []);
 
   return (
