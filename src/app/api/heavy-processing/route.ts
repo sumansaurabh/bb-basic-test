@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withMiddleware, MiddlewarePresets } from '@/lib/api-middleware';
+import { logger } from '@/lib/logger';
+import { validateNumber } from '@/lib/validation';
 
 // Heavy server-side processing endpoint
-export async function GET() {
+async function getHandler() {
   const startTime = Date.now();
   
-  // Simulate heavy database operations
+  logger.info('Starting heavy GET processing');
+  
+  // Simulate heavy database operations with safety limits
   const heavyData = [];
-  for (let i = 0; i < 10000; i++) {
+  const maxItems = 10000;
+  
+  for (let i = 0; i < maxItems; i++) {
     // Simulate complex calculations
     const complexResult = Math.sqrt(
       Math.sin(i) * Math.cos(i) * Math.random() * 1000
@@ -30,6 +37,8 @@ export async function GET() {
   
   const processingTime = Date.now() - startTime;
   
+  logger.info('Heavy GET processing completed', { processingTime, itemsProcessed: heavyData.length });
+  
   return NextResponse.json({
     success: true,
     processingTime,
@@ -44,21 +53,26 @@ export async function GET() {
   });
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   const startTime = Date.now();
   
-  try {
-    const body = await request.json();
-    const { iterations = 1000, complexity = 'medium' } = body;
+  logger.info('Starting heavy POST processing');
+  
+  const body = await request.json();
+  const { iterations = 1000, complexity = 'medium' } = body;
+  
+  // Validate inputs
+  const validatedIterations = validateNumber(iterations, 'iterations', { min: 1, max: 50000, integer: true });
+  const validComplexity = ['light', 'medium', 'heavy'].includes(complexity) ? complexity : 'medium';
     
-    // Heavy computation based on request
-    const results = [];
-    const iterationCount = Math.min(iterations, 50000); // Cap to prevent server overload
+  // Heavy computation based on request
+  const results = [];
+  const iterationCount = validatedIterations;
+  
+  for (let i = 0; i < iterationCount; i++) {
+    let computation = 0;
     
-    for (let i = 0; i < iterationCount; i++) {
-      let computation = 0;
-      
-      switch (complexity) {
+    switch (validComplexity) {
         case 'light':
           computation = Math.random() * i;
           break;
@@ -75,44 +89,42 @@ export async function POST(request: NextRequest) {
           computation = Math.random();
       }
       
-      results.push({
-        iteration: i,
-        result: computation,
-        complexity,
-      });
-      
-      // Periodic delay for heavy operations
-      if (complexity === 'heavy' && i % 100 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1));
-      }
-    }
-    
-    const processingTime = Date.now() - startTime;
-    
-    return NextResponse.json({
-      success: true,
-      processingTime,
-      requestedIterations: iterations,
-      actualIterations: iterationCount,
-      complexity,
-      serverTimestamp: new Date().toISOString(),
-      results: results.slice(0, 50), // Return sample results
-      serverStats: {
-        cpuUsage: Math.random() * 100,
-        memoryUsage: process.memoryUsage(),
-        uptime: process.uptime(),
-      },
+    results.push({
+      iteration: i,
+      result: computation,
+      complexity: validComplexity,
     });
     
-  } catch (err) {
-    console.error('Heavy processing error:', err);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+    // Periodic delay for heavy operations
+    if (validComplexity === 'heavy' && i % 100 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
   }
+  
+  const processingTime = Date.now() - startTime;
+  
+  logger.info('Heavy POST processing completed', { 
+    processingTime, 
+    iterations: iterationCount,
+    complexity: validComplexity 
+  });
+  
+  return NextResponse.json({
+    success: true,
+    processingTime,
+    requestedIterations: iterations,
+    actualIterations: iterationCount,
+    complexity: validComplexity,
+      serverTimestamp: new Date().toISOString(),
+      results: results.slice(0, 50), // Return sample results
+    serverStats: {
+      cpuUsage: Math.random() * 100,
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime(),
+    },
+  });
 }
+
+// Export wrapped handlers with middleware
+export const GET = withMiddleware(getHandler, MiddlewarePresets.heavy);
+export const POST = withMiddleware(postHandler, MiddlewarePresets.heavy);
