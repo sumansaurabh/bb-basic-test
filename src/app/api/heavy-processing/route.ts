@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
+import { formatErrorResponse } from '@/lib/errors';
+import { rateLimiter, RateLimitPresets, getClientIdentifier } from '@/lib/rate-limiter';
+import { validateNumber, validateString } from '@/lib/validation';
 
 // Heavy server-side processing endpoint
-export async function GET() {
-  const startTime = Date.now();
+export async function GET(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(7);
+  const requestLogger = logger.child({ requestId, path: '/api/heavy-processing' });
+
+  try {
+    // Apply rate limiting
+    const clientId = getClientIdentifier(request);
+    rateLimiter.check(clientId, RateLimitPresets.HEAVY);
+
+    requestLogger.info('Heavy processing GET request started');
+    
+    const startTime = Date.now();
   
-  // Simulate heavy database operations
-  const heavyData = [];
+    // Simulate heavy database operations
+    const heavyData = [];
   for (let i = 0; i < 10000; i++) {
     // Simulate complex calculations
     const complexResult = Math.sqrt(
@@ -30,6 +44,11 @@ export async function GET() {
   
   const processingTime = Date.now() - startTime;
   
+  requestLogger.info('Heavy processing GET request completed', {
+    processingTime,
+    itemsProcessed: heavyData.length,
+  });
+
   return NextResponse.json({
     success: true,
     processingTime,
@@ -42,18 +61,56 @@ export async function GET() {
       memoryUsage: process.memoryUsage(),
     },
   });
+  } catch (error) {
+    requestLogger.error('Heavy processing GET request failed', error as Error);
+    
+    const errorResponse = formatErrorResponse(
+      error as Error,
+      '/api/heavy-processing',
+      process.env.NODE_ENV === 'development'
+    );
+
+    return NextResponse.json(
+      errorResponse,
+      { status: errorResponse.error.statusCode }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-  
+  const requestId = Math.random().toString(36).substring(7);
+  const requestLogger = logger.child({ requestId, path: '/api/heavy-processing' });
+
   try {
-    const body = await request.json();
-    const { iterations = 1000, complexity = 'medium' } = body;
+    // Apply rate limiting
+    const clientId = getClientIdentifier(request);
+    rateLimiter.check(clientId, RateLimitPresets.HEAVY);
+
+    requestLogger.info('Heavy processing POST request started');
+
+    const startTime = Date.now();
+    
+    // Parse and validate request body
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      throw new Error('Invalid JSON in request body');
+    }
+
+    const iterations = body.iterations !== undefined 
+      ? validateNumber(body.iterations, 'iterations', { min: 1, max: 50000, integer: true })
+      : 1000;
+    
+    const complexity = body.complexity !== undefined
+      ? validateString(body.complexity, 'complexity', { enum: ['light', 'medium', 'heavy'] })
+      : 'medium';
+
+    requestLogger.info('Processing request', { iterations, complexity });
     
     // Heavy computation based on request
     const results = [];
-    const iterationCount = Math.min(iterations, 50000); // Cap to prevent server overload
+    const iterationCount = iterations; // Already validated to be <= 50000
     
     for (let i = 0; i < iterationCount; i++) {
       let computation = 0;
@@ -89,6 +146,12 @@ export async function POST(request: NextRequest) {
     
     const processingTime = Date.now() - startTime;
     
+    requestLogger.info('Heavy processing POST request completed', {
+      processingTime,
+      iterations: iterationCount,
+      complexity,
+    });
+
     return NextResponse.json({
       success: true,
       processingTime,
@@ -104,15 +167,18 @@ export async function POST(request: NextRequest) {
       },
     });
     
-  } catch (err) {
-    console.error('Heavy processing error:', err);
+  } catch (error) {
+    requestLogger.error('Heavy processing POST request failed', error as Error);
+    
+    const errorResponse = formatErrorResponse(
+      error as Error,
+      '/api/heavy-processing',
+      process.env.NODE_ENV === 'development'
+    );
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
+      errorResponse,
+      { status: errorResponse.error.statusCode }
     );
   }
 }
