@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
+import { formatErrorResponse, TimeoutError } from '@/lib/errors';
+import { rateLimiter, RateLimitConfigs, getRequestIdentifier } from '@/lib/rate-limiter';
+import { Validator } from '@/lib/validation';
 
 // Heavy server-side processing endpoint
-export async function GET() {
+export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+  
+  try {
+    // Rate limiting
+    const identifier = getRequestIdentifier(request);
+    rateLimiter.check(identifier, RateLimitConfigs.HEAVY_PROCESSING);
+    
+    logger.info('Heavy processing GET started', { requestId, identifier });
   
   // Simulate heavy database operations
   const heavyData = [];
@@ -30,8 +42,20 @@ export async function GET() {
   
   const processingTime = Date.now() - startTime;
   
+  // Check for timeout (30 seconds max)
+  if (processingTime > 30000) {
+    throw new TimeoutError('Processing took too long');
+  }
+  
+  logger.info('Heavy processing GET completed', { 
+    requestId, 
+    processingTime, 
+    itemsProcessed: heavyData.length 
+  });
+  
   return NextResponse.json({
     success: true,
+    requestId,
     processingTime,
     itemsProcessed: heavyData.length,
     serverTimestamp: new Date().toISOString(),
@@ -42,14 +66,46 @@ export async function GET() {
       memoryUsage: process.memoryUsage(),
     },
   });
+  } catch (error) {
+    logger.error('Heavy processing GET error', error as Error, { requestId });
+    
+    const errorResponse = formatErrorResponse(
+      error as Error,
+      '/api/heavy-processing',
+      process.env.NODE_ENV === 'development'
+    );
+
+    return NextResponse.json(errorResponse, { 
+      status: errorResponse.error.statusCode 
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  const requestId = crypto.randomUUID();
   
   try {
+    // Rate limiting
+    const identifier = getRequestIdentifier(request);
+    rateLimiter.check(identifier, RateLimitConfigs.HEAVY_PROCESSING);
+    
+    logger.info('Heavy processing POST started', { requestId, identifier });
+    
     const body = await request.json();
     const { iterations = 1000, complexity = 'medium' } = body;
+    
+    // Validate input
+    if (iterations !== undefined) {
+      Validator.isNumber(iterations, 'iterations');
+      Validator.isPositive(iterations, 'iterations');
+      Validator.inRange(iterations, 1, 50000, 'iterations');
+    }
+    
+    if (complexity !== undefined) {
+      Validator.isString(complexity, 'complexity');
+      Validator.isOneOf(complexity, ['light', 'medium', 'heavy'], 'complexity');
+    }
     
     // Heavy computation based on request
     const results = [];
@@ -89,8 +145,21 @@ export async function POST(request: NextRequest) {
     
     const processingTime = Date.now() - startTime;
     
+    // Check for timeout (30 seconds max)
+    if (processingTime > 30000) {
+      throw new TimeoutError('Processing took too long');
+    }
+    
+    logger.info('Heavy processing POST completed', { 
+      requestId, 
+      processingTime, 
+      iterations: iterationCount,
+      complexity 
+    });
+    
     return NextResponse.json({
       success: true,
+      requestId,
       processingTime,
       requestedIterations: iterations,
       actualIterations: iterationCount,
@@ -104,15 +173,17 @@ export async function POST(request: NextRequest) {
       },
     });
     
-  } catch (err) {
-    console.error('Heavy processing error:', err);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
+  } catch (error) {
+    logger.error('Heavy processing POST error', error as Error, { requestId });
+    
+    const errorResponse = formatErrorResponse(
+      error as Error,
+      '/api/heavy-processing',
+      process.env.NODE_ENV === 'development'
     );
+
+    return NextResponse.json(errorResponse, { 
+      status: errorResponse.error.statusCode 
+    });
   }
 }
