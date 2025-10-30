@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withMiddleware, MiddlewarePresets } from '@/lib/api-middleware';
+import { logger } from '@/lib/logger';
+import { validateNumber, validateString } from '@/lib/validation';
 
 // Heavy server-side processing endpoint
-export async function GET() {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const getHandler = async (_request: NextRequest, _context: { params: Promise<unknown> }) => {
+  logger.info('Heavy processing GET request started');
+  
   const startTime = Date.now();
   
-  // Simulate heavy database operations
+  // Simulate heavy database operations with safety limits
   const heavyData = [];
-  for (let i = 0; i < 10000; i++) {
+  const maxItems = 10000;
+  
+  for (let i = 0; i < maxItems; i++) {
     // Simulate complex calculations
     const complexResult = Math.sqrt(
       Math.sin(i) * Math.cos(i) * Math.random() * 1000
@@ -30,6 +38,11 @@ export async function GET() {
   
   const processingTime = Date.now() - startTime;
   
+  logger.info('Heavy processing GET request completed', {
+    processingTime,
+    itemsProcessed: heavyData.length,
+  });
+  
   return NextResponse.json({
     success: true,
     processingTime,
@@ -42,18 +55,31 @@ export async function GET() {
       memoryUsage: process.memoryUsage(),
     },
   });
-}
+};
 
-export async function POST(request: NextRequest) {
+export const GET = withMiddleware(getHandler, MiddlewarePresets.heavy);
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const postHandler = async (request: NextRequest, _context: { params: Promise<unknown> }) => {
+  logger.info('Heavy processing POST request started');
+  
   const startTime = Date.now();
   
   try {
     const body = await request.json();
-    const { iterations = 1000, complexity = 'medium' } = body;
+    
+    // Validate input with proper error handling
+    const iterations = body.iterations !== undefined 
+      ? validateNumber(body.iterations, 'iterations', { min: 1, max: 50000, integer: true })
+      : 1000;
+    
+    const complexity = body.complexity !== undefined
+      ? validateString(body.complexity, 'complexity', { enum: ['light', 'medium', 'heavy'] })
+      : 'medium';
     
     // Heavy computation based on request
     const results = [];
-    const iterationCount = Math.min(iterations, 50000); // Cap to prevent server overload
+    const iterationCount = iterations; // Already validated and capped
     
     for (let i = 0; i < iterationCount; i++) {
       let computation = 0;
@@ -89,6 +115,12 @@ export async function POST(request: NextRequest) {
     
     const processingTime = Date.now() - startTime;
     
+    logger.info('Heavy processing POST request completed', {
+      processingTime,
+      iterations: iterationCount,
+      complexity,
+    });
+    
     return NextResponse.json({
       success: true,
       processingTime,
@@ -105,14 +137,9 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (err) {
-    console.error('Heavy processing error:', err);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process heavy computation',
-        serverTimestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
+    logger.error('Heavy processing POST error', err as Error);
+    throw err; // Let middleware handle the error
   }
-}
+};
+
+export const POST = withMiddleware(postHandler, MiddlewarePresets.heavy);
