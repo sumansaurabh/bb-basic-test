@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { ErrorBoundary } from './ErrorBoundary';
 
 // Heavy computation component
 const HeavyComputation = ({ index }: { index: number }) => {
@@ -195,12 +196,13 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
   }, []);
 
   return (
-    <div className="p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Hydration status */}
-        <div className="mb-8">
-          <HydrationStatus />
-        </div>
+    <ErrorBoundary>
+      <div className="p-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Hydration status */}
+          <div className="mb-8">
+            <HydrationStatus />
+          </div>
 
         {/* Client controls */}
         <div className="text-center mb-8">
@@ -325,7 +327,8 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
             Check your browser&apos;s performance monitor and server logs to see the carnage
           </p>
         </div>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
