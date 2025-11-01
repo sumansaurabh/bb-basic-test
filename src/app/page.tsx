@@ -1,6 +1,7 @@
 // Server-side data fetching and initial page structure
 import { ClientHeavyComponents } from './components/ClientHeavyComponents';
 import { ServerSideContent } from './components/ServerSideContent';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Metadata } from 'next';
 
 // This runs on the server
@@ -52,13 +53,17 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Server-rendered content */}
-      <ServerSideContent serverData={serverData} />
+      <ErrorBoundary>
+        <ServerSideContent serverData={serverData} />
+      </ErrorBoundary>
       
       {/* Client-rendered heavy components */}
-      <ClientHeavyComponents 
-        initialCount={serverData.initialHeavyComponentCount}
-        serverItems={serverData.serverProcessedItems}
-      />
+      <ErrorBoundary>
+        <ClientHeavyComponents 
+          initialCount={serverData.initialHeavyComponentCount}
+          serverItems={serverData.serverProcessedItems}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
