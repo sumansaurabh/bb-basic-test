@@ -2,15 +2,22 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
 
-  // dummy user
-  const user = {
+  // dummy user with proper typing
+  const user: {
+    name: string;
+    email: string;
+    profile?: {
+      address?: {
+        name?: string;
+      };
+    };
+  } = {
     "name": "John Doe",
     "email": "johdoe@gmail.com",
   }
 
-  // This will throw a runtime error: Cannot read property 'name' of undefined
-  // @ts-expect-error - Intentionally accessing undefined property for testing
-  const data = user.profile.address.name;
+  // Safe access with optional chaining and default value
+  const data = user.profile?.address?.name ?? 'Address not available';
 
   return NextResponse.json({
     success: true,
