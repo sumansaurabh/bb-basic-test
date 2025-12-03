@@ -304,14 +304,3 @@ You now have a **production-grade**, fully working, correctly configured Cloud R
 * Fully automated routing
 
 This setup is extremely powerful and scalable, and the JSON backend creation is the **key trick** that Google never documents.
-
----
-
-If you want, I can also produce:
-
-✅ A Terraform module for this
-✅ A GitHub Actions pipeline to auto-renew certificates
-✅ A Cloudflare-compatible renewal script
-✅ A version for *multiple Cloud Run services behind the same LB*
-
-Just tell me!
