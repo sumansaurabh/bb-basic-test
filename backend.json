@@ -1,0 +1,6 @@
+{
+  "name": "backend-bb-1",
+  "loadBalancingScheme": "EXTERNAL_MANAGED",
+  "protocol": "HTTP2",
+  "timeoutSec": 30
+}
