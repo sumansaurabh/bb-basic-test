@@ -42,6 +42,9 @@ function startServer() {
 }
 
 // Graceful shutdown handler
+/**
+ * Initiates a graceful shutdown of the server upon receiving a signal.
+ */
 function gracefulShutdown(signal) {
   if (isShuttingDown) {
     return;
