@@ -2,6 +2,7 @@
 import { ClientHeavyComponents } from './components/ClientHeavyComponents';
 import { ServerSideContent } from './components/ServerSideContent';
 import { Metadata } from 'next';
+import Link from 'next/link';
 
 // This runs on the server
 async function getServerData() {
@@ -51,6 +52,35 @@ export default async function Home() {
   
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* Payment Navigation Bar */}
+      <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">💳 Payment Gateway</h2>
+            <div className="flex gap-4">
+              <Link
+                href="/payment"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+              >
+                Custom Payment
+              </Link>
+              <Link
+                href="/subscription"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+              >
+                Subscriptions
+              </Link>
+              <Link
+                href="/subscription/manage"
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+              >
+                Manage
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Server-rendered content */}
       <ServerSideContent serverData={serverData} />
       
