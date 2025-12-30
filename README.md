@@ -1,36 +1,36 @@
-# Basic Next.js Website
+# 基础 Next.js 网站
 
-A simple Next.js application with TypeScript and Tailwind CSS.
+一个简单的 Next.js 应用程序，使用 TypeScript 和 Tailwind CSS。
 
-## Getting Started
+## 开始使用
 
-### Development
-Run the development server:
+### 开发
+运行开发服务器：
 ```bash
 pnpm dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the website.
+打开 [http://localhost:3000](http://localhost:3000) 查看网站。
 
-### Build
-Create a production build:
+### 构建
+创建生产构建：
 ```bash
 pnpm build
 ```
 
-### Production
-Start the production server:
+### 生产
+启动生产服务器：
 ```bash
 pnpm start
 ```
 
-### Linting
-Run ESLint:
+### 代码检查
+运行 ESLint：
 ```bash
 pnpm lint
 ```
 
-## Project Structure
-- `src/app/page.tsx` - Main page component
-- `src/app/layout.tsx` - Root layout component
-- `src/app/globals.css` - Global styles
-- `public/` - Static assets
+## 项目结构
+- `src/app/page.tsx` - 主页面组件
+- `src/app/layout.tsx` - 根布局组件
+- `src/app/globals.css` - 全局样式
+- `public/` - 静态资源
