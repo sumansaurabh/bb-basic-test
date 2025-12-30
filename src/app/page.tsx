@@ -51,6 +51,17 @@ export default async function Home() {
   
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* Payment Gateway Link */}
+      <div className="fixed top-4 right-4 z-50">
+        <a
+          href="/payment"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 flex items-center space-x-2"
+        >
+          <span>💳</span>
+          <span>Stripe Payment</span>
+        </a>
+      </div>
+
       {/* Server-rendered content */}
       <ServerSideContent serverData={serverData} />
       
