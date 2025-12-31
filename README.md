@@ -34,3 +34,9 @@ pnpm lint
 - `src/app/layout.tsx` - Root layout component
 - `src/app/globals.css` - Global styles
 - `public/` - Static assets
+
+## Stripe Payments
+- Set `STRIPE_SECRET_KEY` in the server environment for API calls.
+- Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the client environment.
+- Optionally define `NEXT_PUBLIC_SITE_URL` to control redirect URLs.
+- Trigger checkout from the new "Upgrade" button on the main page.

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { StripeCheckoutButton } from './StripeCheckoutButton';
 
 // Heavy computation component
 const HeavyComputation = ({ index }: { index: number }) => {
@@ -202,22 +203,29 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
           <HydrationStatus />
         </div>
 
-        {/* Client controls */}
-        <div className="text-center mb-8">
-          <div className="p-6 bg-orange-900 border border-orange-600 rounded-lg">
-            <h2 className="text-3xl font-bold text-orange-300 mb-4">🔥 Client-Side Load Controls</h2>
-            <p className="text-orange-200 mb-4">
-              Client started at: {new Date(clientStartTime).toLocaleTimeString()}
-            </p>
-            <button
-              onClick={generateMoreLoad}
-              disabled={isGenerating}
-              className="px-8 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded-lg font-bold text-white transition-colors"
-            >
-              {isGenerating ? 'GENERATING MORE LOAD...' : 'ADD MORE CLIENT LOAD 💥'}
-            </button>
-            <p className="mt-2 text-orange-400">Current Heavy Components: {heavyComponents}</p>
+        {/* Client controls and Stripe CTA */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="text-center">
+            <div className="p-6 bg-orange-900 border border-orange-600 rounded-lg h-full flex flex-col justify-between">
+              <div>
+                <h2 className="text-3xl font-bold text-orange-300 mb-4">🔥 Client-Side Load Controls</h2>
+                <p className="text-orange-200 mb-4">
+                  Client started at: {new Date(clientStartTime).toLocaleTimeString()}
+                </p>
+              </div>
+              <div>
+                <button
+                  onClick={generateMoreLoad}
+                  disabled={isGenerating}
+                  className="w-full px-8 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded-lg font-bold text-white transition-colors"
+                >
+                  {isGenerating ? 'GENERATING MORE LOAD...' : 'ADD MORE CLIENT LOAD 💥'}
+                </button>
+                <p className="mt-2 text-orange-400">Current Heavy Components: {heavyComponents}</p>
+              </div>
+            </div>
           </div>
+          <StripeCheckoutButton />
         </div>
 
         {/* Memory Heavy Section */}
