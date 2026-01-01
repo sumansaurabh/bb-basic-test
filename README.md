@@ -1,5 +1,7 @@
 # Basic Next.js Website
 
+*[中文版](./README.zh-CN.md)*
+
 A simple Next.js application with TypeScript and Tailwind CSS.
 
 ## Getting Started
