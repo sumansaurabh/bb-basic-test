@@ -39,6 +39,16 @@ export function ServerSideContent({ serverData }: ServerSideContentProps) {
             ⚠️ WARNING: This page combines Server-Side and Client-Side Rendering ⚠️
           </p>
           
+          {/* Navigation Links */}
+          <div className="mt-6 mb-4 flex justify-center gap-4">
+            <a
+              href="/checkout"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg font-bold text-white transition duration-200 shadow-lg"
+            >
+              💳 Stripe Checkout Demo
+            </a>
+          </div>
+
           {/* Server info panel */}
           <div className="mt-6 p-6 bg-blue-900 rounded-lg border border-blue-600">
             <h2 className="text-2xl font-bold text-blue-300 mb-4">📊 Server-Side Information</h2>
