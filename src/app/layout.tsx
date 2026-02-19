@@ -38,6 +38,9 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Renders the root layout of the application with meta tags and children components.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

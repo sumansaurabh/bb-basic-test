@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 
 // Heavy computation component
+/**
+ * A component that performs a heavy computation and displays the result.
+ */
 const HeavyComputation = ({ index }: { index: number }) => {
   const [result, setResult] = useState(0);
   
@@ -33,6 +36,9 @@ const HeavyComputation = ({ index }: { index: number }) => {
 };
 
 // Memory intensive component
+/**
+ * Renders a memory-intensive component displaying a large array of data items.
+ */
 const MemoryHeavyComponent = () => {
   const largeArray = useMemo(() => {
     return Array.from({ length: 50000 }, (_, i) => ({
@@ -65,6 +71,9 @@ const MemoryHeavyComponent = () => {
 };
 
 // Infinite loop of animations
+/**
+ * A React component that displays a counter and animated elements.
+ */
 const AnimationHeavyComponent = () => {
   const [counter, setCounter] = useState(0);
 
@@ -96,6 +105,9 @@ const AnimationHeavyComponent = () => {
 };
 
 // DOM Heavy Component
+/**
+ * Renders a DOM-heavy component displaying a grid of items.
+ */
 const DOMHeavyComponent = () => {
   return (
     <div className="p-4 bg-purple-100 rounded">
@@ -123,6 +135,9 @@ const DOMHeavyComponent = () => {
 };
 
 // Client-side hydration component
+/**
+ * A component that displays hydration status of client components.
+ */
 const HydrationStatus = () => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationTime, setHydrationTime] = useState<number>(0);
@@ -163,11 +178,17 @@ interface ClientHeavyComponentsProps {
   serverItems: ServerProcessedItem[];
 }
 
+/**
+ * Renders client-heavy components with load generation and performance monitoring.
+ */
 export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavyComponentsProps) {
   const [heavyComponents, setHeavyComponents] = useState(initialCount);
   const [isGenerating, setIsGenerating] = useState(false);
   const [clientStartTime] = useState(() => Date.now());
 
+  /**
+   * Initiates the generation of more load by updating state after a timeout.
+   */
   const generateMoreLoad = () => {
     setIsGenerating(true);
     setTimeout(() => {
@@ -178,6 +199,9 @@ export function ClientHeavyComponents({ initialCount, serverItems }: ClientHeavy
 
   // Continuous background computation
   useEffect(() => {
+    /**
+     * Continuously computes a sum based on random values and trigonometric functions.
+     */
     const worker = () => {
       const array = new Array(100000).fill(0);
       let sum = 0;

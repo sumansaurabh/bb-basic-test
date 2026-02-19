@@ -24,6 +24,9 @@ interface ServerSideContentProps {
   serverData: ServerData;
 }
 
+/**
+ * Renders server-side content including server information and processed items.
+ */
 export function ServerSideContent({ serverData }: ServerSideContentProps) {
   const { serverInfo, serverProcessedItems } = serverData;
 
