@@ -30,6 +30,9 @@ async function getServerData() {
   };
 }
 
+/**
+ * Generates metadata for a server-side rendered load testing page.
+ */
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getServerData();
   
